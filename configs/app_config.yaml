@@ -1,0 +1,18 @@
+nebius:
+  base_url: "https://api.tokenfactory.nebius.com/v1/"
+  extraction_model: "Qwen/Qwen3-235B-A22B-Instruct-2507"
+  response_model: "Qwen/Qwen3-235B-A22B-Instruct-2507"
+  extraction_temperature: 0.0
+  response_temperature: 0.4
+  max_tokens: 500
+
+mlflow:
+  tracking_uri: "sqlite:///mlflow.db"
+  experiment_name: "baseball_aiq_avg_prediction"
+
+data:
+  panel_path: "data/processed/panel.csv"
+  people_path: "data/raw/People.csv"
+  scaler_path: "data/processed/scaler.joblib"
+
+required_fields: ["AVG", "AB", "Age"]

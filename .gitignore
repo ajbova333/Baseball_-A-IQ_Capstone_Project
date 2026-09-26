@@ -1,0 +1,21 @@
+# Data (tracked with DVC if used, not committed to git)
+data/*
+!data/.gitkeep
+
+# Environment / secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# MLflow
+mlruns/
+mlartifacts/
+mlflow.db
+
+# OS / editor
+.DS_Store
+.vscode/
