@@ -82,12 +82,39 @@ def build_feature_row(stats, resources):
         x= row_df[resources['feature_cols']]
         return x, caveats
 
+position_aliases= {
+        'pitcher': 'P', 'catcher': 'C',
+        'first base': '1B', 'first baseman': '1B',
+        'second base': '2B', 'second baseman': '2B',
+        'third base': '3B', 'third baseman': '3B',
+        'shortstop': 'SS', 'short stop': 'SS',
+        'left field': 'LF', 'left fielder': 'LF',
+        'center field': 'CF', 'center fielder': 'CF',
+        'right field': 'RF', 'right fielder': 'RF',
+        'outfield': 'OF', 'outfielder': 'OF',
+        'designated hitter': 'DH',
+}
+
+rate_stat_keys= ['AVG', 'OBP', 'SLG', 'BB%', 'K%', 'BABIP']
+
+def normalize_stats(stats):
+      """Convert whole-number percentages to decimals, and map
+       spelled out position names to the abbreviations the model was trained on."""
+      normalized = dict(stats)
+
+      for key in rate_stat_keys:
+            value = normalized.get(key)
+            if value is not None and value > 1:
+                  normalized[key] = value / 100
+
+      position = normalized.get('Position')
+      if position:
+            normalized['Position'] = position_aliases.get(position.strip().lower(), position)
+      return normalized
 
 
 required_fields=[
-        'AVG',
-        'AB',
-        'Age'
+            'Age',
 ]
 
 stat_fields= [
@@ -110,7 +137,8 @@ hybrid_prompt= f"""You Extract a real baseball player's name and any stated over
 Return only a JSON object with this shapeL:
 {{'player_name': '<name or null>', 'overrides': {{<any of these keys the user explicitly overrides: value, ...}}}}
 Valid Override keys: {stat_fields}
-Only include a key in 'overrides' if the user explicitly states a different value than the real player's actual stats."""
+Only include a key in 'overrides' if the user explicitly states a different value than the real player's actual stats.
+Do not include any key in 'overrides' unless the user literally stated a specific value for it. Do not infer, estimate, or add an override the user did not explicitly state, even if you believe you know a typical or realistic value."""
 
 response_system_prompt ="""You are a baseball analytics assistant explaining a ML model's prediction.
 
@@ -119,7 +147,11 @@ Strict Rules:
 
 -Only use the numeric values given to you in the user message below. Never use outside knowledge about any real player's actual stats.
 -Never invent or guess a number that was not given to you.
--State the predicted next-season AVG and its uncertainty range clearly.
+-For any field listed in "defaulted_fields", you were NOT given its actual value. Do not state a specific number for those fields — only mention generically that they were filled in with typical/average values.
+-Do NOT restate the predicted AVG or the uncertainty range yourself - those are already shown to the user separately, above your response. Focus only on explaining the reasoning behind the prediction.
+-Only cite specific numbers that appear in "provided_stats".
+-If "provided_stats" includes an actual AVG value for the player's most recent season, state that number explicitly for comparison against the prediction. If "provided_stats" does NOT include an AVG value, this is a hypothetical player with no real season - do not mention a "last season" average at all.
+-If "overrides" is a non-empty dict, that represents a deliberate hypothetical change from the player's real value(s) - explicitly state what was changed and its value, since that's the central point of the question.
 -If any inputs were defaulted(not given by the user), mention this briefly as a caveat.
 -Keep the ton clear, conversational, and concise (2-4 sentences)."""
 
@@ -171,7 +203,7 @@ def generate_response(client, config, context):
         )
         return strip_reasoning(response.choices[0].message.content)
 
-def run_prediction(resources, client, stats, context_extra):
+def run_prediction(resources, client, stats, context_extra, overrides=None):
         """Given a finalized stats dictionary, predict and display the LLM's explaination."""
         x, caveats= build_feature_row(stats, resources)
 
@@ -183,9 +215,15 @@ def run_prediction(resources, client, stats, context_extra):
                   'uncertainty_range': [round(float(low), 4), round(float(high), 4)],
                   'defaulted_fields': caveats,
                   'provided_stats': {k: v for k, v in stats.items() if v is not None},
+                  'overrides': overrides or {},
                   }
-        reply= generate_response(client, resources['config'],context)
-        st.markdown(reply)
+        explanation= generate_response(client, resources['config'], context)
+        summary= (
+              f"**Predicted next-season AVG: {prediction: .3f}** "
+              f"(typical range: {low: .3f}\u2013{high: .3f}, based on the model's average prediction error)"
+        )
+        st.markdown(summary)
+        st.markdown(explanation)
 def predict_for_player(resources, client, player_id, overrides, context_extra):
         season_row= get_latest_season(player_id, resources['panel'])
         if season_row is None:
@@ -193,7 +231,7 @@ def predict_for_player(resources, client, player_id, overrides, context_extra):
                 return
         stats= season_row.to_dict()
         stats.update({k: v for k, v in overrides.items() if v is not None})
-        run_prediction(resources, client, stats, context_extra)
+        run_prediction(resources, client, stats, context_extra, overrides=overrides)
 
 def resolve_and_predict(resources, client, player_name, overrides, context_extra):
         match = find_player(player_name, resources['name_lookup'])
@@ -212,7 +250,7 @@ def resolve_and_predict(resources, client, player_name, overrides, context_extra
 
 def handle_hypotheticals(resources, client, user_text):
         extracted= extract_features(client, resources['config'], 'hypothetical', user_text)
-
+        extracted= normalize_stats(extracted)
         missing= [f for f in required_fields if extracted.get(f) is None]
         if missing:
                 st.warning(f'Ineed a bit more information to make a prediction. Please provide: {", ".join(missing)}')
@@ -276,7 +314,7 @@ def main():
                 if not extracted.get('player_name'):
                     st.warning("I couldn't find a player name in your question. Please try again.")
                 else:
-                    overrides= extracted.get('overrides', {})
+                    overrides= normalize_stats(extracted.get('overrides', {}))
                     resolve_and_predict(resources, client, extracted['player_name'], overrides, {'mode': 'hybrid'})
 
 if __name__== '__main__':
