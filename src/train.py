@@ -18,12 +18,15 @@ def load_config(path= 'configs/train_config.yaml'):
         return yaml.safe_load(f)
 
 def chrono_split(df, test_fraction):
-    """Sort by year, then take the last test_fraction of rows (count) as
-    test set."""
-    df_sorted= df.sort_values('yearID').reset_index(drop=True)
-    split_idx= int(len(df_sorted) * (1 - test_fraction))
-    train_df= df_sorted.iloc[:split_idx].copy()
-    test_df= df_sorted.iloc[split_idx:].copy()
+    """Sort by year, then hold out the most recent years as the test set,
+    keeping every row from a given year on the same side of the split."""
+    years = sorted(df['yearID'].unique())
+    split_idx = int(len(years) * (1 - test_fraction))
+    train_years = years[:split_idx]
+    test_years = years[split_idx:]
+
+    train_df = df[df['yearID'].isin(train_years)].reset_index(drop=True)
+    test_df = df[df['yearID'].isin(test_years)].reset_index(drop=True)
     return train_df, test_df
 
 def get_feature_sets(df):

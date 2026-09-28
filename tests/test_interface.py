@@ -2,7 +2,7 @@ import pandas as pd
 import joblib
 import pytest
 
-from src.app import normalize_stats, build_feature_row, load_app_config
+from src.app import normalize_stats, build_feature_row, load_app_config, get_client, extract_features
 from src.player_lookup import load_people, build_name_lookup, find_player
 from src.preprocessing import preprocess
 from src.train import get_feature_sets
@@ -67,4 +67,28 @@ def test_build_feature_row_handles_sparse_input(resources):
     assert 'AVG' in caveats
     assert 'Age' not in caveats
 
+def test_extract_features_hypothetical():
+    config= load_app_config()
+    client= get_client(config)
 
+    result= extract_features(
+        client, config, "hypothetical",
+        "I'm a 45 year old first baseman with a .310 batting average and 500 at bats."
+    )
+
+    result = normalize_stats(result)
+
+    assert result['Age'] == 45
+    assert result['AB'] == 500
+    assert abs(result['AVG'] - 0.310) < 0.01
+    assert result['Position'] == '1B'
+
+
+def test_extract_features_real_player_name_from_natural_language():
+    config = load_app_config()
+    client = get_client(config)
+
+    result = extract_features(client, config, 'real_player', "What was Mike Trout's batting average last year?")
+
+    assert result['player_name'] is not None
+    assert 'trout' in result['player_name'].lower()

@@ -95,14 +95,15 @@ position_aliases= {
         'designated hitter': 'DH',
 }
 
-rate_stat_keys= ['AVG', 'OBP', 'SLG', 'BB%', 'K%', 'BABIP']
+percentage_stat_keys= ['BB%', 'K%']
 
 def normalize_stats(stats):
-      """Convert whole-number percentages to decimals, and map
-       spelled out position names to the abbreviations the model was trained on."""
+      """Convert whole-number percentages to decimals for fields users naturally
+       state as percentages, and map spelled out position names to the
+       abbreviations the model was trained on."""
       normalized = dict(stats)
 
-      for key in rate_stat_keys:
+      for key in percentage_stat_keys:
             value = normalized.get(key)
             if value is not None and value > 1:
                   normalized[key] = value / 100
@@ -114,29 +115,29 @@ def normalize_stats(stats):
 
 
 required_fields=[
-            'Age',
+            "AVG", "AB", "Age"
 ]
 
 stat_fields= [
-        'AVG', 'OBP', 'SLG', 'BB%', 'K%', 'BABIP', 'PA/AB', 'Age',
-    'AB', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'CS', 'BB', 'SO',
-    'IBB', 'HBP', 'SH', 'SF', 'GIDP', 'G', 'PA', 'Position',
+        "AVG", "OBP", "SLG", "BB%", "K%", "BABIP", "PA/AB", "Age",
+    "AB", "H", "2B", "3B", "HR", "RBI", "SB", "CS", "BB", "SO",
+    "IBB", "HBP", "SH", "SF", "GIDP", "G", "PA", "Position",
 ]
 
 real_player_prompt= """You extract a baseball player's name from a user's question.
-Return ONLY a JSON object: {'player_name': '<name>'}
-If no name is Mentioned, return{'player_name': null}."""
+Return ONLY a JSON object: {"player_name": "<name>"}
+If no name is Mentioned, return{"player_name": null}."""
 
 hypothetical_player_prompt= f"""You extract baseball statistics mentioned in a user's message.
-Return ONLY a JSON object with these exact keys: {stat_fields}
+Return ONLY a JSON object with these exact keys: {json.dumps(stat_fields)}
 used the value the user stated for any field the mentioned. Use null for any field not mentioned.
 Do not guess or infer values the user did not state."""
 
 
 hybrid_prompt= f"""You Extract a real baseball player's name and any stated override statistics from a user's message.
 Return only a JSON object with this shapeL:
-{{'player_name': '<name or null>', 'overrides': {{<any of these keys the user explicitly overrides: value, ...}}}}
-Valid Override keys: {stat_fields}
+{{"player_name": "<name or null>", "overrides": {{<any of these keys the user explicitly overrides: value, ...}}}}
+Valid Override keys: {json.dumps(stat_fields)}
 Only include a key in 'overrides' if the user explicitly states a different value than the real player's actual stats.
 Do not include any key in 'overrides' unless the user literally stated a specific value for it. Do not infer, estimate, or add an override the user did not explicitly state, even if you believe you know a typical or realistic value."""
 
