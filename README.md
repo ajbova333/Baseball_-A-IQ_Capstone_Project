@@ -88,11 +88,11 @@ Five MLflow runs were compared (chronological train/test split, held constant ac
 **Best model: tuned Linear Regression, full feature set**
 | Metric | Value |
 |---|---|
-| MAE | 0.0233 |
-| RMSE | 0.0297 |
-| R² | 0.222 |
+| MAE | 0.0234 |
+| RMSE | 0.0298 |
+| R² | 0.2247 |
 
-Linear Regression won outright — neither Random Forest nor Gradient Boosting beat it on the full feature set, and the rates-only feature set didn't beat the full one either. That's a real, interesting finding: the relationship between a player's current-season stats and their next-season AVG appears to be largely linear and mean-reverting, without much nonlinear structure for the ensemble methods to exploit. Tuning the winner's one adjustable hyperparameter (`fit_intercept`) barely moved the result, which makes sense in hindsight — there wasn't much room to tune in the first place.
+Linear Regression won outright — neither Random Forest nor Gradient Boosting beat it on the full feature set, and the rates-only feature set didn't beat the full one either. That's a real, interesting finding: the relationship between a player's current-season stats and their next-season AVG appears to be largely linear and mean-reverting, without much nonlinear structure for the ensemble methods to exploit. Tuning the winner's one adjustable hyperparameter (`fit_intercept`) produced an identical result to the untuned baseline, which makes sense in hindsight — there wasn't much room to tune in the first place.
 
 An MAE of ~0.023 on a stat that typically ranges from .200–.350 is a reasonable result for this task; predicting next-season batting average from a single prior season is a well-known hard problem in sabermetrics, given how much regression to the mean affects individual seasons.
 
